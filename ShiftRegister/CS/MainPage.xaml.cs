@@ -1,26 +1,5 @@
-﻿/*
-    Copyright(c) Microsoft Open Technologies, Inc. All rights reserved.
+﻿// Copyright (c) Microsoft. All rights reserved.
 
-    The MIT License(MIT)
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files(the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and / or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions :
-
-    The above copyright notice and this permission notice shall be included in
-    all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-    THE SOFTWARE.
-*/
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -50,9 +29,9 @@ namespace ShiftRegister
         private const double TIMER_INTERVAL = 100; // value is milliseconds and denotes the timer interval
         private const double TIME_DELAY = 1;
 
-        private const int SRCLK_PIN = 0; // GPIO 0 is pin 27 on RPI2 header
+        private const int SRCLK_PIN = 18; // GPIO 18 is pin 12 on RPI2 header
         private GpioPin shiftRegisterClock;
-        private const int SER_PIN = 1; // GPIO 1 is pin 28 on RPI2 header
+        private const int SER_PIN = 27; // GPIO 27 is pin 13 on the RPI2 header
         private GpioPin serial;
         private const int RCLK_PIN = 5; // GPIO 5 is pin 29 on RPI2 header
         private GpioPin registerClock;
@@ -94,13 +73,6 @@ namespace ShiftRegister
             registerClock = gpio.OpenPin(RCLK_PIN);
             outputEnable = gpio.OpenPin(OE_PIN);
             shiftRegisterClear = gpio.OpenPin(SRCLR_PIN);
-
-            // Show an error if the pin wasn't initialized properly
-            if (shiftRegisterClock == null || serial == null || registerClock == null || outputEnable == null || shiftRegisterClear == null)
-            {
-                GpioStatus.Text = "There were problems initializing the GPIO pin.";
-                return;
-            }
 
             // reset the pins to a known state
             shiftRegisterClock.Write(GpioPinValue.Low);

@@ -1,50 +1,19 @@
-﻿/*
-    Copyright(c) Microsoft Open Technologies, Inc. All rights reserved.
-
-    The MIT License(MIT)
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files(the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and / or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions :
-
-    The above copyright notice and this permission notice shall be included in
-    all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-    THE SOFTWARE.
-*/
+﻿// Copyright (c) Microsoft. All rights reserved.
 
 using System;
 using Windows.Devices.Gpio;
+using Windows.UI.Core;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
-using Windows.UI.Xaml.Controls.Primitives;
 using Windows.UI.Xaml.Media;
 
 namespace PushButton
 {
     public sealed partial class MainPage : Page
     {
-        private GpioPinValue pushButtonValue;
         public MainPage()
         {
             InitializeComponent();
-
-            timer = new DispatcherTimer();
-            timer.Interval = TimeSpan.FromMilliseconds(500);
-            timer.Tick += Timer_Tick;
-            timer.Start();
-
-            Unloaded += MainPage_Unloaded;
-
             InitGPIO();
         }
 
@@ -55,69 +24,65 @@ namespace PushButton
             // Show an error if there is no GPIO controller
             if (gpio == null)
             {
-                pin = null;
                 GpioStatus.Text = "There is no GPIO controller on this device.";
                 return;
             }
-            pushButton = gpio.OpenPin(PB_PIN);
-            pin = gpio.OpenPin(LED_PIN);
 
-            // Show an error if the pin wasn't initialized properly
-            if (pin == null)
-            {
-                GpioStatus.Text = "There were problems initializing the GPIO LED pin.";
-                return;
-            }
-            if (pushButton == null)
-            {
-                GpioStatus.Text = "There were problems initializing the GPIO Push Button pin.";
-                return;
-            }
+            buttonPin = gpio.OpenPin(BUTTON_PIN);
+            ledPin = gpio.OpenPin(LED_PIN);
 
-            pushButton.SetDriveMode(GpioPinDriveMode.Input);
-            pin.SetDriveMode(GpioPinDriveMode.Output);
+            // Initialize LED to the OFF state by first writing a HIGH value
+            // We write HIGH because the LED is wired in a active LOW configuration
+            ledPin.Write(GpioPinValue.High); 
+            ledPin.SetDriveMode(GpioPinDriveMode.Output);
 
-            GpioStatus.Text = "GPIO pin initialized correctly.";
+            // Check if input pull-up resistors are supported
+            if (buttonPin.IsDriveModeSupported(GpioPinDriveMode.InputPullUp))
+                buttonPin.SetDriveMode(GpioPinDriveMode.InputPullUp);
+            else
+                buttonPin.SetDriveMode(GpioPinDriveMode.Input);
+
+            // Set a debounce timeout to filter out switch bounce noise from a button press
+            buttonPin.DebounceTimeout = TimeSpan.FromMilliseconds(50);
+
+            // Register for the ValueChanged event so our buttonPin_ValueChanged 
+            // function is called when the button is pressed
+            buttonPin.ValueChanged += buttonPin_ValueChanged;
+
+            GpioStatus.Text = "GPIO pins initialized correctly.";
         }
 
-        private void MainPage_Unloaded(object sender, object args)
+        private void buttonPin_ValueChanged(GpioPin sender, GpioPinValueChangedEventArgs e)
         {
-            // Cleanup
-            pin.Dispose();
-            pushButton.Dispose();
-        }
-
-        private void FlipLED()
-        {
-            pushButtonValue = pushButton.Read();
-            if (pushButtonValue == GpioPinValue.High)
+            // toggle the state of the LED every time the button is pressed
+            if (e.Edge == GpioPinEdge.FallingEdge)
             {
-                LED.Fill = redBrush;
-                pin.Write(GpioPinValue.High);
+                ledPinValue = (ledPinValue == GpioPinValue.Low) ?
+                    GpioPinValue.High : GpioPinValue.Low;
+                ledPin.Write(ledPinValue);
             }
-            else if (pushButtonValue == GpioPinValue.Low)
-            {
-                LED.Fill = grayBrush;
-                pin.Write(GpioPinValue.Low);
-            }
+
+            // need to invoke UI updates on the UI thread because this event
+            // handler gets invoked on a separate thread.
+            var task = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () => {
+                if (e.Edge == GpioPinEdge.FallingEdge)
+                {
+                    ledEllipse.Fill = (ledPinValue == GpioPinValue.Low) ? 
+                        redBrush : grayBrush;
+                    GpioStatus.Text = "Button Pressed";
+                }
+                else
+                {
+                    GpioStatus.Text = "Button Released";
+                }
+            });
         }
 
-       
-
-       private void Timer_Tick(object sender, object e)
-        {
-            FlipLED();
-        }
-
-       
-        /// <summary>
-        /// 
-        /// </summary>
-        private const int LED_PIN = 27;
-        private const int PB_PIN = 5;
-        private GpioPin pin;
-        private GpioPin pushButton;
-        private DispatcherTimer timer;
+        private const int LED_PIN = 6;
+        private const int BUTTON_PIN = 5;
+        private GpioPin ledPin;
+        private GpioPin buttonPin;
+        private GpioPinValue ledPinValue = GpioPinValue.High;
         private SolidColorBrush redBrush = new SolidColorBrush(Windows.UI.Colors.Red);
         private SolidColorBrush grayBrush = new SolidColorBrush(Windows.UI.Colors.LightGray);
     }

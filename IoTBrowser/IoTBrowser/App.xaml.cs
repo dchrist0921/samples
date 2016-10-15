@@ -1,4 +1,7 @@
-﻿using System;
+﻿// Copyright (c) Microsoft. All rights reserved.
+
+
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -25,20 +28,28 @@ namespace IoTBrowser
     sealed partial class App : Application
     {
         /// <summary>
-        /// Allows tracking page views, exceptions and other telemetry through the Microsoft Application Insights service.
-        /// </summary>
-        public static Microsoft.ApplicationInsights.TelemetryClient TelemetryClient;
-
-        /// <summary>
         /// Initializes the singleton application object.  This is the first line of authored code
         /// executed, and as such is the logical equivalent of main() or WinMain().
         /// </summary>
         public App()
         {
-            TelemetryClient = new Microsoft.ApplicationInsights.TelemetryClient();
-
             this.InitializeComponent();
             this.Suspending += OnSuspending;
+        }
+        
+        protected override void OnActivated(IActivatedEventArgs args)
+        {
+            if(args == null)
+            {
+                return;
+            }
+            // NOTE: URI protocol handling code currently not implemented. As per the manifest declaration, protocol extension has been added to this app
+            // to prevent Windows.System.Launcher.dll module failure that occurs when attempting to navigate to URLs of this type
+            if (args.Kind == ActivationKind.Protocol)
+            {
+                ProtocolActivatedEventArgs eventArgs = args as ProtocolActivatedEventArgs;
+               System.Diagnostics.Debug.WriteLine(new Uri(eventArgs.Uri.AbsoluteUri));
+            }
         }
 
         /// <summary>

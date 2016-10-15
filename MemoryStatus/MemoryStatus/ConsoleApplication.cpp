@@ -1,26 +1,4 @@
-/*
-    Copyright(c) Microsoft Open Technologies, Inc. All rights reserved.
-
-    The MIT License(MIT)
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files(the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and / or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions :
-
-    The above copyright notice and this permission notice shall be included in
-    all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-    THE SOFTWARE.
-*/
+// Copyright (c) Microsoft. All rights reserved.
 
 // ConsoleApplication.cpp : Defines the entry point for the console application.
 //
@@ -70,15 +48,38 @@ void printMessageLine(LPCSTR msg, DWORDLONG value)
     cout << right << value << endl;
 }
 
+void checkInput(HANDLE exitEvent)
+{
+    for (;;)
+    {
+        char character;
+        cin.get(character);
+        if (character == 'q')
+        {
+            ::SetEvent(exitEvent);
+            break;
+        }
+    }
+}
+
 int main(int argc, char **argv)
 {
-    printMessageLine("Starting to monitor memory consumption!");
+    printMessageLine("Starting to monitor memory consumption! Press enter to start monitoring");
+    printMessageLine("You can press q and enter at anytime to exit");
+    cin.get();
+    HANDLE exitEvent = ::CreateEvent(NULL, FALSE, FALSE, NULL);
+    if (NULL == exitEvent)
+    {
+        printMessageLine("Failed to create exitEvent.");
+        return -1;
+    }
+    std::thread inputThread(checkInput, exitEvent);
     for (;;)
     {
         MEMORYSTATUSEX statex;
         statex.dwLength = sizeof(statex);
 
-        BOOL success = GlobalMemoryStatusEx(&statex);
+        BOOL success = ::GlobalMemoryStatusEx(&statex);
         if (!success)
         {
             DWORD error = GetLastError();
@@ -112,7 +113,13 @@ int main(int argc, char **argv)
 
         }
 
-        this_thread::sleep_for(chrono::milliseconds(100));
+        if (WAIT_OBJECT_0 == ::WaitForSingleObject(exitEvent, 100))
+        {
+            break;
+        }
     }
+
+    inputThread.join();
+    ::CloseHandle(exitEvent);
     printMessageLine("No longer monitoring memory consumption!");
 }

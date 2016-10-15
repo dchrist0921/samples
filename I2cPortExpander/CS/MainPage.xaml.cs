@@ -1,26 +1,5 @@
-﻿/*
-    Copyright(c) Microsoft Open Technologies, Inc. All rights reserved.
+﻿// Copyright (c) Microsoft. All rights reserved.
 
-    The MIT License(MIT)
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files(the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and / or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions :
-
-    The above copyright notice and this permission notice shall be included in
-    all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-    THE SOFTWARE.
-*/
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -47,7 +26,6 @@ namespace I2cPortExpander
     public sealed partial class MainPage : Page
     {
         // use these constants for controlling how the I2C bus is setup
-        private const string I2C_CONTROLLER_NAME = "I2C1"; //specific to RPI2
         private const byte PORT_EXPANDER_I2C_ADDRESS = 0x20; // 7-bit I2C address of the port expander
         private const byte PORT_EXPANDER_IODIR_REGISTER_ADDRESS = 0x00; // IODIR register controls the direction of the GPIO on the port expander
         private const byte PORT_EXPANDER_GPIO_REGISTER_ADDRESS = 0x09; // GPIO register is used to read the pins input
@@ -87,21 +65,12 @@ namespace I2cPortExpander
             byte[] i2CWriteBuffer;
             byte[] i2CReadBuffer;
             byte bitMask;
+            
+          
+            var i2cSettings = new I2cConnectionSettings(PORT_EXPANDER_I2C_ADDRESS);
+            var controller = await I2cController.GetDefaultAsync();
+            i2cPortExpander = controller.GetDevice(i2cSettings);
 
-            // initialize I2C communications
-            try
-            {
-                var i2cSettings = new I2cConnectionSettings(PORT_EXPANDER_I2C_ADDRESS);
-                i2cSettings.BusSpeed = I2cBusSpeed.FastMode;
-                string deviceSelector = I2cDevice.GetDeviceSelector(I2C_CONTROLLER_NAME);
-                var i2cDeviceControllers = await DeviceInformation.FindAllAsync(deviceSelector);
-                i2cPortExpander = await I2cDevice.FromIdAsync(i2cDeviceControllers[0].Id, i2cSettings);
-            }
-            catch (Exception e)
-            {
-                System.Diagnostics.Debug.WriteLine("Exception: {0}", e.Message);
-                return;
-            }
 
             // initialize I2C Port Expander registers
             try
@@ -135,28 +104,21 @@ namespace I2cPortExpander
             }
             catch (Exception e)
             {
-                System.Diagnostics.Debug.WriteLine("Exception: {0}", e.Message);
+                ButtonStatusText.Text = "Failed to initialize I2C port expander: " + e.Message;
                 return;
             }
 
             // setup our timers, one for the LED blink interval, the other for checking button status
-            try
-            {
-                ledTimer = new DispatcherTimer();
-                ledTimer.Interval = TimeSpan.FromMilliseconds(TIMER_INTERVAL);
-                ledTimer.Tick += LedTimer_Tick;
-                ledTimer.Start();
+            
+            ledTimer = new DispatcherTimer();
+            ledTimer.Interval = TimeSpan.FromMilliseconds(TIMER_INTERVAL);
+            ledTimer.Tick += LedTimer_Tick;
+            ledTimer.Start();
 
-                buttonStatusCheckTimer = new DispatcherTimer();
-                buttonStatusCheckTimer.Interval = TimeSpan.FromMilliseconds(BUTTON_STATUS_CHECK_TIMER_INTERVAL);
-                buttonStatusCheckTimer.Tick += ButtonStatusCheckTimer_Tick;
-                buttonStatusCheckTimer.Start();
-            }
-            catch (Exception e)
-            {
-                System.Diagnostics.Debug.WriteLine("Exception: {0}", e.Message);
-                return;
-            }
+            buttonStatusCheckTimer = new DispatcherTimer();
+            buttonStatusCheckTimer.Interval = TimeSpan.FromMilliseconds(BUTTON_STATUS_CHECK_TIMER_INTERVAL);
+            buttonStatusCheckTimer.Tick += ButtonStatusCheckTimer_Tick;
+            buttonStatusCheckTimer.Start();
         }
 
         private void MainPage_Unloaded(object sender, object args)

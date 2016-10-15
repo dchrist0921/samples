@@ -1,26 +1,5 @@
-﻿/*
-    Copyright(c) Microsoft Open Technologies, Inc. All rights reserved.
+﻿// Copyright (c) Microsoft. All rights reserved.
 
-    The MIT License(MIT)
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files(the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and / or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions :
-
-    The above copyright notice and this permission notice shall be included in
-    all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-    THE SOFTWARE.
-*/
 using System;
 using System.Threading.Tasks;
 using System.Collections.Generic;
@@ -60,6 +39,11 @@ namespace SPIDisplay
         private const Int32 DATA_COMMAND_PIN = 22;          /* We use GPIO 22 since it's conveniently near the SPI pins */
         private const Int32 RESET_PIN = 23;                 /* We use GPIO 23 since it's conveniently near the SPI pins */
 
+        /* Uncomment for DragonBoard 410c */
+        //private const string SPI_CONTROLLER_NAME = "SPI0";  /* For DragonBoard, use SPI0                                */
+        //private const Int32 SPI_CHIP_SELECT_LINE = 0;       /* Line 0 maps to physical pin number 12 on the DragonBoard */
+        //private const Int32 DATA_COMMAND_PIN = 12;          /* We use GPIO 12 since it's conveniently near the SPI pins */
+        //private const Int32 RESET_PIN = 69;                 /* We use GPIO 69 since it's conveniently near the SPI pins */
 
         /* This sample is intended to be used with the following OLED display: http://www.adafruit.com/product/938 */
         private const UInt32 SCREEN_WIDTH_PX = 128;                         /* Number of horizontal pixels on the display */
@@ -139,10 +123,8 @@ namespace SPIDisplay
                 settings.Mode = SpiMode.Mode3;                                  /* The display expects an idle-high clock polarity, we use Mode3    
                                                                                  * to set the clock polarity and phase to: CPOL = 1, CPHA = 1         
                                                                                  */
-
-                string spiAqs = SpiDevice.GetDeviceSelector(SPI_CONTROLLER_NAME);       /* Find the selector string for the SPI bus controller          */
-                var devicesInfo = await DeviceInformation.FindAllAsync(spiAqs);         /* Find the SPI bus controller device with our selector string  */
-                SpiDisplay = await SpiDevice.FromIdAsync(devicesInfo[0].Id, settings);  /* Create an SpiDevice with our bus controller and SPI settings */
+                var controller = await SpiController.GetDefaultAsync();
+                SpiDisplay = controller.GetDevice(settings);  /* Create an SpiDevice with our bus controller and SPI settings */
 
             }
             /* If initialization fails, display the exception and stop running */
@@ -183,26 +165,23 @@ namespace SPIDisplay
 
         /* Initialize the GPIO */
         private void InitGpio()
-        {
-            try
+        {            
+            IoController = GpioController.GetDefault(); /* Get the default GPIO controller on the system */
+            if (IoController == null)
             {
-                IoController = GpioController.GetDefault(); /* Get the default GPIO controller on the system */
-
-                /* Initialize a pin as output for the Data/Command line on the display  */
-                DataCommandPin = IoController.OpenPin(DATA_COMMAND_PIN);
-                DataCommandPin.Write(GpioPinValue.High);
-                DataCommandPin.SetDriveMode(GpioPinDriveMode.Output);
-
-                /* Initialize a pin as output for the hardware Reset line on the display */
-                ResetPin = IoController.OpenPin(RESET_PIN);
-                ResetPin.Write(GpioPinValue.High);
-                ResetPin.SetDriveMode(GpioPinDriveMode.Output);
+                throw new Exception("GPIO does not exist on the current system.");
             }
-            /* If initialization fails, throw an exception */
-            catch (Exception ex)
-            {
-                throw new Exception("GPIO initialization failed", ex);
-            }
+            
+            /* Initialize a pin as output for the Data/Command line on the display  */
+            DataCommandPin = IoController.OpenPin(DATA_COMMAND_PIN);
+            DataCommandPin.Write(GpioPinValue.High);
+            DataCommandPin.SetDriveMode(GpioPinDriveMode.Output);
+
+            /* Initialize a pin as output for the hardware Reset line on the display */
+            ResetPin = IoController.OpenPin(RESET_PIN);
+            ResetPin.Write(GpioPinValue.High);
+            ResetPin.SetDriveMode(GpioPinDriveMode.Output);
+        
         }
 
         /* Send graphics data to the screen */
